@@ -1,0 +1,291 @@
+00001  0000             ;1 BLOCK [254B] SNAKE BY DIEGO BARZON - 19/11/2004
+00002  0001             
+00003  0001             *=         $0801
+00004  0801             ; VARIABLES
+00005  0801             
+00006  0801             POINTER    = $B0
+00007  0801             POINTS     = $39
+00008  0801             DIRECTION  = $EA
+00009  0801             TAILX      = $F8
+00010  0801             TAILY      = $F9
+00011  0801             WAIT       = $FA
+00012  0801             HEADX      = $FB
+00013  0801             HEADY      = $FC
+00014  0801             SPEED      = $FD
+00015  0801             MASK       = $FE
+00016  0801             
+00017  0801             ; CONSTANTS
+00018  0801             
+00019  0801             SCREEN     = $08 ; TO BE ROR'D SO MEANS $04 / BUFFER LOCATED AT $84
+00020  0801             INITIALSPEED = $14
+00021  0801             PATTERN    = $A0   ; PATTERN MUST HAVE BIT 7&5 ON (>= $A0) AND LOW NIBBLE 0
+00022  0801             SPACE      = $20
+00023  0801             
+00024  0801             ; BASIC SYS CALL (2004 SYS2130)
+00025  0801             ;
+00026  0801             ; 10 BYTES
+00027  0801             
+00028  0801  0B 08 D4              BYTE           $0B,$08,$D4,$07,$9E,$32,$31,$33,$30,$00
+00029  080B                        
+00030  080B                        
+00031  080B                        
+00032  080B             
+00033  080B             
+00034  080B             
+00035  080B             ; CONSTRUCT A POINTER TO THE SCREEN AND LOAD VALUE
+00036  080B             ;
+00037  080B             ; INPUT: X = Y COORD. ,Y = X COORD.
+00038  080B             ;        C: 0 - VIDEO BASE, 1 - BUFFER
+00039  080B             ; OUTPUT: XY NOT MODIFIED, A POINTED VALUE, C=0
+00040  080B             ;
+00041  080B             ; 31 BYTES
+00042  080B             
+00043  080B  C9 00      GETBUF     CMP #$00          ;2 EQUAL TO SEC BUT USING BASIC DATA (THX NINJADRM)
+00044  080D  86 B0      GETVID     STX POINTER       ;2 TO RUN GETVID CALLER MUST CLEAR CARRY
+00045  080F  A9 FE                 LDA #$FE          ;2 USED TO EXIT LOOP: BIT 0 OF [POINTER+1] IS NOT
+00046  0811  85 B1                 STA POINTER+1     ;2 SUPPOSED TO BE SET DURING THE 1ST RUN OF THE LOOP
+00047  0813  A9 08                 LDA #SCREEN       ;2
+00048  0815  6A                    ROR               ;1 04 => SCREEN, 84 => BUFFER
+00049  0816  06 B0      ROLLOP     ASL POINTER       ;2
+00050  0818  90 06                 BCC ROLFIX        ;2
+00051  081A  69 13                 ADC #$13          ;2 CARRY SET FOR SURE AND IT'LL ROL SO ($28/2)-1 =$13
+00052  081C  90 02                 BCC ROLFIX        ;2
+00053  081E  E6 B1                 INC POINTER+1     ;2 ADJUST HI-BYTE
+00054  0820  0A         ROLFIX     ASL               ;1 ROL LOW-BYTE
+00055  0821  26 B1                 ROL POINTER+1     ;2 ROL HI-BYTE
+00056  0823  B0 F1                 BCS ROLLOP        ;2 LOOP SEVEN MORE TIMES (UNTIL WE REACH 0 IN $FE)
+00057  0825  85 B0                 STA POINTER       ;2 STORE LOW BYTE (HI BYTE STILL READY)
+00058  0827  B1 B0                 LDA (POINTER),Y   ;2 LOAD POINTED VALUE
+00059  0829  60         RETURN     RTS               ;1
+00060  082A             
+00061  082A             
+00062  082A             
+00063  082A             ; BONUS MANAGEMENT
+00064  082A             ;
+00065  082A             ; INPUT: A=$0A
+00066  082A             ; OUTPUT: UNDEFINED (OUTPUT OF $BDC9 KERNEL ROUTINE)
+00067  082A             ;
+00068  082A             ; 40 BYTES
+00069  082A             
+00070  082A  E6 FA      BONUS      INC WAIT           ;2 INCREMENT WORM LENGTH
+00071  082C  65 39                 ADC POINTS         ;2 UPDATE SCORE
+00072  082E  85 39                 STA POINTS         ;2
+00073  0830  90 02                 BCC CHKLP          ;2
+00074  0832  E6 3A                 INC POINTS+1       ;2
+00075  0834  AE 1B D4   CHKLP      LDX $D41B          ;3 LOAD RANDOM COORDINATES (SID 3RD VOICE VALUE)
+00076  0837  E0 19                 CPX #$19           ;2 Y BOUND
+00077  0839  B0 F9                 BCS CHKLP          ;2
+00078  083B  AC 1B D4   CHKL2      LDY $D41B          ;3
+00079  083E  C0 28                 CPY #$28           ;2 X BOUND
+00080  0840  B0 F9                 BCS CHKL2          ;2 TILL WE GET AN USEFUL PAIR
+00081  0842  20 0D 08              JSR GETVID         ;3 CHECK POSITION
+00082  0845  49 20                 EOR #SPACE         ;2
+00083  0847  D0 EB                 BNE CHKLP          ;2 LOOP UNTIL WE GET A FREE POSITION
+00084  0849  85 D3                 STA $D3            ;2 UPDATE CURRENT COLUMN TO 0 (A=0)
+00085  084B  A9 2A                 LDA #$2A           ;2 '*'
+00086  084D  91 B0                 STA (POINTER),Y    ;2 STORE BONUS
+00087  084F  4C C9 BD              JMP $BDC9          ;3 PRINT SCORE AND RTS
+00088  0852             
+00089  0852             
+00090  0852             
+00091  0852             ; INITIALIZATION AND START
+00092  0852             ;
+00093  0852             ; INPUT: NOTHING
+00094  0852             ; OUTPUT: A=PATTERN, X=81, Y=0, C=0
+00095  0852             ;
+00096  0852             ; 39 BYTES
+00097  0852             
+00098  0852  20 44 E5   MAIN       JSR $E544        ;3 CLEAR SCREEN
+00099  0855  A0 81                 LDY #$81         ;2 WAS DEY (IAN)
+00100  0857  8C 0F D4              STY $D40F        ;3 INITIALIZE SID (NOISE WAVEFORM ON 3RD VOICE)
+00101  085A  8C 12 D4              STY $D412        ;3
+00102  085D  85 EA                 STA DIRECTION    ;2 Y=131 SO WORM WILL BE 3 BLOCKS LONG
+00103  085F  A2 07                 LDX #$07         ;2 LOOKS LIKE 7 IS A GOOD VALUE TO INITIALIZE
+00104  0861  8A                    TXA              ;1 MOST OF THE VARIABLES INVOLVED... :)
+00105  0862  95 F6      INIT       STA TAILX-2,X    ;2
+00106  0864  CA                    DEX              ;1
+00107  0865  D0 FB                 BNE INIT         ;2
+00108  0867  18                    CLC              ;1 X=0 BECAUSE OF THE LOOP SO GET A POINTER
+00109  0868  20 0D 08              JSR GETVID       ;3 TO THE FIRST SCREEN ROW
+00110  086B  A0 50                 LDY #$50         ;2 WRITE PATTERN IN FIRST AND SECOND ROW
+00111  086D  A9 A0                 LDA #PATTERN     ;2
+00112  086F  88         ROWLP      DEY              ;1
+00113  0870  91 B0                 STA (POINTER),Y  ;2
+00114  0872  D0 FB                 BNE ROWLP        ;2
+00115  0874  84 39                 STY POINTS       ;2 CLEAR SCORE
+00116  0876  84 3A                 STY POINTS+1     ;2
+00117  0878  20 34 08              JSR CHKLP        ;3 PRINT SCORE AND PUT FIRST BONUS
+00118  087B             
+00119  087B             
+00120  087B             ; MAIN LOOP
+00121  087B             ;
+00122  087B             ; INPUT: X=WAIT TIME (FIRST ONE'S LONGER)
+00123  087B             ; OUTPUT: X-1
+00124  087B             ;
+00125  087B             ; 5 BYTES
+00126  087B             
+00127  087B  86 FD      MAINLP     STX SPEED  ;2 UPDATE TIMER
+00128  087D  CA                    DEX        ;1
+00129  087E  D0 58                 BNE TESTK  ;2
+00130  0880             
+00131  0880             
+00132  0880             ; DRAW SNAKE HEAD
+00133  0880             ;
+00134  0880             ; INPUT: NOTHING
+00135  0880             ; OUTPUT: A=0, XY CURRENT HEAD POSITION (X IS Y COORD., Y IS X COORD.)
+00136  0880             ;
+00137  0880             ; 61 BYTES
+00138  0880             
+00139  0880  A6 FC      HEAD       LDX HEADY          ;2 SET POINTER TO CURRENT POSITION IN BUFFER
+00140  0882  A4 FB                 LDY HEADX          ;2
+00141  0884  20 0B 08              JSR GETBUF         ;3
+00142  0887  AD 00 DC              LDA $DC00          ;3 NORMAL VALUE $7F, MICROSWITCH ACTIVE ON 0
+00143  088A  49 7F                 EOR #$7F           ;2
+00144  088C  25 FE                 AND MASK           ;2 NORMALIZED => DIRECTION IN FIRST NIBBLE
+00145  088E  D0 02                 BNE CHNG           ;2 DIRECTION CHANGE?
+00146  0890  A5 EA                 LDA DIRECTION      ;2 NO, SO LOAD CURRENT DIRECTION
+00147  0892  85 EA      CHNG       STA DIRECTION      ;2 STORE DIRECTION
+00148  0894  91 B0                 STA (POINTER),Y    ;2 ALSO IN BUFFER FOR DELETING TAIL
+00149  0896  09 E0                 ORA #$E0           ;2 => USED TO GUESS IF LAST MOVE IS U/D OR L/R
+00150  0898  20 E1 08              JSR UPDATE         ;3 UPDATE POSITIONS
+00151  089B  84 FB                 STY HEADX          ;2 STORE
+00152  089D  86 FC                 STX HEADY          ;2
+00153  089F  B0 B1                 BCS MAIN           ;2 IF BORDER CROSSED GAME OVER, RESTART
+00154  08A1  29 04                 AND #$04           ;2 CALCULATE MASK SO THAT WORM CAN'T GO
+00155  08A3  F0 02                 BEQ NOMOD          ;2 TO THE OPPOSITE DIRECTION IN THE NEXT CYCLE
+00156  08A5  49 0B                 EOR #$0B           ;2 IF CURRENT DIRECTION IS L OR R THEN MASK L AND R
+00157  08A7  49 0C      NOMOD      EOR #$0C           ;2 IF CURRENT DIRECTION IS U OR D THEN MASK U AND D
+00158  08A9  85 FE                 STA MASK           ;2 EVEN IF MASKED OUT, CURRENT DIRECTION STILL WORKS
+00159  08AB  20 0D 08              JSR GETVID         ;3 LOAD CURRENT POSITION VALUE
+00160  08AE  48                    PHA                ;1
+00161  08AF  A9 A0                 LDA #PATTERN       ;2 STORE PATTERN IN CURRENT POSITION
+00162  08B1  91 B0                 STA (POINTER),Y    ;2
+00163  08B3  68                    PLA                ;1
+00164  08B4  49 20                 EOR #SPACE         ;2 CHECK IF PREVIOUS LOADED VALUE IS PATTERN
+00165  08B6  30 9A                 BMI MAIN           ;2 IF SO GAME OVER, RESTART
+00166  08B8  F0 03                 BEQ TAIL           ;2 NO: GO TO TAIL CUT
+00167  08BA  20 2A 08              JSR BONUS          ;3 YES: GO UPDATING
+00168  08BD             
+00169  08BD             ; DELETE TAIL
+00170  08BD             ;
+00171  08BD             ; INPUT: NOTHING
+00172  08BD             ; OUTPUT: A=UNDEFINED (SHOULD BE 0), XY CURRENT TAIL POSITION
+00173  08BD             ; 25 BYTES
+00174  08BD             
+00175  08BD  46 FA      TAIL       LSR WAIT               ;2
+00176  08BF  B0 15                 BCS NEWTIM             ;2 WAIT IF WORM HAS TO GROW
+00177  08C1  A6 F9                 LDX TAILY              ;2 LOAD CURRENT TAIL POSITION IN BUFFER
+00178  08C3  A4 F8                 LDY TAILX              ;2
+00179  08C5  20 0D 08              JSR GETVID             ;3 CARRY IS 0 FOR SURE BECAUSE OF GETBUF
+00180  08C8  29 2F                 AND #$2F               ;2 UPDATE SCREEN DELETING TAIL PATTERN
+00181  08CA  91 B0                 STA (POINTER),Y        ;2
+00182  08CC  20 0B 08              JSR GETBUF             ;3 GET REAL TAIL POSITION (IN BUFFER)
+00183  08CF  20 E1 08              JSR UPDATE             ;3 UPDATE TAIL POSITION USING THE INFORMATION
+00184  08D2  86 F9                 STX TAILY              ;2 IN BUFFER. STORE VALUES
+00185  08D4  84 F8                 STY TAILX              ;2
+00186  08D6             
+00187  08D6             
+00188  08D6             
+00189  08D6             ; WAIT RETRACE & CHECK KEYBOARD
+00190  08D6             ;
+00191  08D6             ; INPUT: NOTHING
+00192  08D6             ; OUTPUT: A=0, X=INITIAL SPEED (FOR TIMER), C= 0 FOR LOOP OR 1 FOR END
+00193  08D6             ;
+00194  08D6             ; 11 BYTES
+00195  08D6             
+00196  08D6  A2 14      NEWTIM     LDX #INITIALSPEED  ;2 RESET SPEED COUNTDOWN
+00197  08D8  46 C6      TESTK      LSR $C6            ;2 CHECK BUTTON PRESSED
+00198  08DA  AD 12 D0   WAITRT     LDA $D012          ;3 WAIT RETRACE
+00199  08DD  D0 FB                 BNE WAITRT         ;2
+00200  08DF  90 9A                 BCC MAINLP         ;2 IF BUTTON PRESSED CONTINUE AND FINISH WITH RTS
+00201  08E1             
+00202  08E1             
+00203  08E1             
+00204  08E1             ; UPDATE DIRECTIONS
+00205  08E1             ;
+00206  08E1             ; INPUT: A=NIBBLE(LRDU) OR #$E0
+00207  08E1             ; OUTPUT: BIT 4 OF A: 0 IF U/D UPDATE 1 IF L/R UPDATE, XY UPDATE ACCORDING
+00208  08E1             ;         TO INPUT NIBBLE
+00209  08E1             ;
+00210  08E1             ; 20 BYTES
+00211  08E1             
+00212  08E1  4A         UPDATE     LSR                ;1 TEST UP BIT
+00213  08E2  90 03                 BCC UP             ;2
+00214  08E4  CA                    DEX                ;1
+00215  08E5  B0 0E                 BCS CHECK          ;2 EXIT UPDATE, NO MORE LSR TO PRESERVE BIT 4
+00216  08E7  4A         UP         LSR                ;1 TEST DOWN BIT
+00217  08E8  90 03                 BCC DOWN           ;2
+00218  08EA  E8                    INX                ;1
+00219  08EB  B0 08                 BCS CHECK          ;2 EXIT UPDATE, NO MORE LSR TO PRESERVE BIT 4
+00220  08ED  4A         DOWN       LSR                ;1 TEST RIGHT BIT
+00221  08EE  90 01                 BCC RIGHT          ;2
+00222  08F0  88                    DEY                ;1
+00223  08F1  4A         RIGHT      LSR                ;1 TEST LEFT BIT
+00224  08F2  90 01                 BCC CHECK          ;2
+00225  08F4  C8                    INY                ;1
+00226  08F5             
+00227  08F5             
+00228  08F5             ; CHECK EDGES
+00229  08F5             ;
+00230  08F5             ; INPUT: XY COORDINATES TO CHECK
+00231  08F5             ; OUTPUT: C=1 IF BOUND CROSSED, C=0 IF NOT
+00232  08F5             ;
+00233  08F5             ; 7 BYTES
+00234  08F5             
+00235  08F5  C0 28      CHECK      CPY #$28           ;2 IS Y BETWEEN 0 AND $27 (DEC 39)
+00236  08F7  B0 02                 BCS SETC           ;2
+00237  08F9  E0 19                 CPX #$19           ;2 IS X BETWEEN 0 AND $18 (DEC 24)
+00238  08FB  60         SETC       RTS                ;1
+00239  08FC             
+00240  08FC             
+
+******* 25 Label(s) *******
+Bonus = $082A 
+Check = $08F5 
+ChkL2 = $083B 
+ChkLp = $0834 
+Chng = $0892 
+Down = $08ED 
+GetBuf = $080B 
+GetVid = $080D 
+Head = $0880 
+Init = $0862 
+Main = $0852 
+MainLp = $087B 
+NewTim = $08D6 
+NoMod = $08A7 
+Return = $0829 
+Right = $08F1 
+RolFix = $0820 
+RolLop = $0816 
+RowLp = $086F 
+SetC = $08FB 
+Tail = $08BD 
+TestK = $08D8 
+Up = $08E7 
+Update = $08E1 
+WaitRT = $08DA 
+
+******* 2 Unused label(s) *******
+Head
+Return
+
+******* 15 Variable(s) *******
+Direction  = $00EA
+HeadX  = $00FB
+HeadY  = $00FC
+InitialSpeed  = $0014
+Mask  = $00FE
+Pattern  = $00A0
+Pointer  = $00B0
+Points  = $0039
+Screen  = $0008
+Space  = $0020
+Speed  = $00FD
+TailX  = $00F8
+TailY  = $00F9
+tgt_c64  = $0001
+Wait  = $00FA
+******* 1 Unused variables(s) *******
+tgt_c64
+
