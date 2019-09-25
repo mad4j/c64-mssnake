@@ -25,7 +25,10 @@ Space = $20
 ;
 ; 10 bytes
 
-.byte $0B,$08,$D4,$07,$9E,$32,$31,$33,$30,$00
+          BYTE           $0B,$08,$D4,$07,$9E,$32,$31,$33,$30,$00
+          
+          
+          
 
 
 
@@ -51,7 +54,7 @@ RolLop Asl Pointer       ;2
 RolFix Asl               ;1 Rol low-byte
        Rol Pointer+1     ;2 Rol hi-byte
        Bcs RolLop        ;2 Loop seven more times (until we reach 0 in $FE)
-EndMul Sta Pointer       ;2 Store low byte (hi byte still ready)
+       Sta Pointer       ;2 Store low byte (hi byte still ready)
        Lda (Pointer),y   ;2 Load pointed value
 Return Rts               ;1
 
