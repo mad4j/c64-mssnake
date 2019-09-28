@@ -4,12 +4,12 @@ Commmodore 64 porting of Ms Snake!
 ## BASIC Launcher
 
 ### Code
-'''
+```
 2019 SYS2130
-'''
+```
 
 ### Assembly
-
+```
 $0801 $0B
 $0802 $08   ; low byte, high byte address of the next basic line
 
@@ -27,3 +27,4 @@ $080A $00   ; end of line marker
 
 $080B $00  
 $090C $00   ; end of program marker
+```
