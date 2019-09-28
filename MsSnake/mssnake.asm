@@ -1,92 +1,49 @@
-;1 block [254b] snake by Diego Barzon - 19/11/2004
+
+; MsSnake! by Daniele Olmisani - 09/2019
+
+; References: 
+;  * 1 block snake by Diego Barzon - 19/11/2004
+
+
+; Start address
 
 *= $0801
+
+
 ; Variables
 
-Pointer = $B0
-Points = $39
-Direction = $Ea
-TailX = $F8
-TailY = $F9
-Wait = $Fa
-HeadX = $Fb
-HeadY = $Fc
-Speed = $Fd
-Mask = $Fe
+Pointer   = $B0
+Points    = $39
+Direction = $EA
+TailX     = $F8
+TailY     = $F9
+Wait      = $FA
+HeadX     = $FB
+HeadY     = $FC
+Speed     = $FD
+Mask      = $FE
+
+
 
 ; Constants
 
-Screen = $08 ; To be ror'd so means $04 / buffer located at $84
+Screen       = $08   ; To be ror'd so means $04 / buffer located at $84
 InitialSpeed = $14
-Pattern = $A0   ; Pattern must have bit 7&5 on (>= $A0) and low nibble 0
-Space = $20
+Pattern      = $A0   ; Pattern must have bit 7&5 on (>= $A0) and low nibble 0
+Space        = $20
 
-; Basic sys call (2004 Sys2130)
-;
-; 10 bytes
 
-          BYTE           $0B,$08,$D4,$07,$9E,$32,$31,$33,$30,$00
+Paper        = $05
+Ink          = $00
+
+
+; Basic sys call (2019 Sys2061)
+; jump to Main loop at $080D
+
+; 12 bytes
+
+           BYTE          $0B,$08,$E3,$07,$9E,$32,$30,$36,$31,$00,$00,$00
           
-          
-          
-
-
-
-; Construct a pointer to the screen and load value
-;
-; Input: X = y Coord. ,Y = x Coord.
-;        c: 0 - video base, 1 - Buffer
-; Output: XY not modified, A pointed value, c=0
-;
-; 31 bytes
-
-GetBuf Cmp #$00          ;2 Equal to sec but using basic data (Thx NinjaDRM)
-GetVid Stx Pointer       ;2 to run GetVid caller must clear carry
-       Lda #$FE          ;2 Used to exit loop: bit 0 of [pointer+1] is not
-       Sta Pointer+1     ;2 supposed to be set during the 1st run of the loop
-       Lda #Screen       ;2
-       Ror               ;1 04 => Screen, 84 => buffer
-RolLop Asl Pointer       ;2
-       Bcc RolFix        ;2
-       Adc #$13          ;2 Carry set for sure and it'll rol so ($28/2)-1 =$13
-       Bcc RolFix        ;2
-       Inc Pointer+1     ;2 Adjust hi-byte
-RolFix Asl               ;1 Rol low-byte
-       Rol Pointer+1     ;2 Rol hi-byte
-       Bcs RolLop        ;2 Loop seven more times (until we reach 0 in $FE)
-       Sta Pointer       ;2 Store low byte (hi byte still ready)
-       Lda (Pointer),y   ;2 Load pointed value
-Return Rts               ;1
-
-
-
-; Bonus management
-;
-; Input: A=$0a
-; Output: undefined (output of $Bdc9 kernel routine)
-;
-; 40 bytes
-
-Bonus Inc Wait           ;2 Increment worm length
-      Adc Points         ;2 Update score
-      Sta Points         ;2
-      Bcc ChkLp          ;2
-      Inc Points+1       ;2
-ChkLp Ldx $d41b          ;3 Load random coordinates (SID 3rd voice value)
-      Cpx #$19           ;2 Y bound
-      Bcs ChkLp          ;2
-ChkL2 Ldy $d41b          ;3
-      Cpy #$28           ;2 X bound
-      Bcs ChkL2          ;2 till we get an useful pair
-      Jsr GetVid         ;3 Check position
-      Eor #Space         ;2
-      Bne ChkLp          ;2 Loop until we get a free position
-      Sta $D3            ;2 Update current column to 0 (A=0)
-      Lda #$2A           ;2 '*'
-      Sta (Pointer),y    ;2 Store bonus
-      Jmp $Bdc9          ;3 Print score and RTS
-
-
 
 ; Initialization and start
 ;
@@ -95,7 +52,13 @@ ChkL2 Ldy $d41b          ;3
 ;
 ; 39 bytes
 
-Main   jsr $E544        ;3 Clear screen
+Main   LDA #Paper
+       STA $D020        ; set border color
+       STA $D021        ; set background color
+       LDA #Ink
+       STA $0286        ; set text color
+
+       jsr $E544        ;3 Clear screen
        ldy #$81         ;2 was dey (iAN)
        Sty $D40f        ;3 Initialize SID (noise waveform on 3rd voice)
        Sty $D412        ;3
@@ -236,4 +199,62 @@ Check Cpy #$28           ;2 is Y between 0 and $27 (dec 39)
       Bcs SetC           ;2
       Cpx #$19           ;2 is X between 0 and $18 (dec 24)
 SetC  Rts                ;1
+
+
+
+; Construct a pointer to the screen and load value
+;
+; Input: X = y Coord. ,Y = x Coord.
+;        c: 0 - video base, 1 - Buffer
+; Output: XY not modified, A pointed value, c=0
+;
+; 31 bytes
+
+GetBuf Cmp #$00          ;2 Equal to sec but using basic data (Thx NinjaDRM)
+GetVid Stx Pointer       ;2 to run GetVid caller must clear carry
+       Lda #$FE          ;2 Used to exit loop: bit 0 of [pointer+1] is not
+       Sta Pointer+1     ;2 supposed to be set during the 1st run of the loop
+       Lda #Screen       ;2
+       Ror               ;1 04 => Screen, 84 => buffer
+RolLop Asl Pointer       ;2
+       Bcc RolFix        ;2
+       Adc #$13          ;2 Carry set for sure and it'll rol so ($28/2)-1 =$13
+       Bcc RolFix        ;2
+       Inc Pointer+1     ;2 Adjust hi-byte
+RolFix Asl               ;1 Rol low-byte
+       Rol Pointer+1     ;2 Rol hi-byte
+       Bcs RolLop        ;2 Loop seven more times (until we reach 0 in $FE)
+       Sta Pointer       ;2 Store low byte (hi byte still ready)
+       Lda (Pointer),y   ;2 Load pointed value
+Return Rts               ;1
+
+
+
+; Bonus management
+;
+; Input: A=$0a
+; Output: undefined (output of $Bdc9 kernel routine)
+;
+; 40 bytes
+
+Bonus Inc Wait           ;2 Increment worm length
+      Adc Points         ;2 Update score
+      Sta Points         ;2
+      Bcc ChkLp          ;2
+      Inc Points+1       ;2
+ChkLp Ldx $d41b          ;3 Load random coordinates (SID 3rd voice value)
+      Cpx #$19           ;2 Y bound
+      Bcs ChkLp          ;2
+ChkL2 Ldy $d41b          ;3
+      Cpy #$28           ;2 X bound
+      Bcs ChkL2          ;2 till we get an useful pair
+      Jsr GetVid         ;3 Check position
+      Eor #Space         ;2
+      Bne ChkLp          ;2 Loop until we get a free position
+      Sta $D3            ;2 Update current column to 0 (A=0)
+      Lda #$2A           ;2 '*'
+      Sta (Pointer),y    ;2 Store bonus
+      Jmp $Bdc9          ;3 Print score and RTS
+
+
 
