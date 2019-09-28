@@ -33,8 +33,8 @@ Pattern      = $A0   ; Pattern must have bit 7&5 on (>= $A0) and low nibble 0
 Space        = $20
 
 
-Paper        = $05
-Ink          = $00
+Green        = $05
+Black        = $00
 
 
 ; Basic sys call (2019 Sys2061)
@@ -52,13 +52,15 @@ Ink          = $00
 ;
 ; 39 bytes
 
-Main   LDA #Paper
+Main   LDA #Green
        STA $D020        ; set border color
+       LDA #Green
        STA $D021        ; set background color
-       LDA #Ink
+       LDA #Black
        STA $0286        ; set text color
 
-       jsr $E544        ;3 Clear screen
+       JSR $E544        ; call clear screen kernal function
+
        ldy #$81         ;2 was dey (iAN)
        Sty $D40f        ;3 Initialize SID (noise waveform on 3rd voice)
        Sty $D412        ;3
